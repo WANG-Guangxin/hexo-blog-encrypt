@@ -11,7 +11,7 @@ function setBusy(form, busy) {
   if (button) {
     button.disabled = !!busy;
   }
-  const input = form.querySelector('#hbePass');
+  const input = form.querySelector('#hbePass, .hbe-partial-password');
   if (input) {
     input.disabled = !!busy;
   }
@@ -36,7 +36,7 @@ function clearError(mainElement) {
 }
 
 function readPassword(form) {
-  const input = form.querySelector('#hbePass');
+  const input = form.querySelector('#hbePass, .hbe-partial-password');
   return input ? input.value : '';
 }
 

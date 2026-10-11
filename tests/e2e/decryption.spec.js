@@ -213,6 +213,51 @@ for (const theme of themes) {
 // ─── Single-theme global v4 specs ────────────────────────────────────────
 
 test.describe('v4 UX (single-theme)', () => {
+  test('partial encryption removes secrets from static HTML', async ({ request }) => {
+    const response = await request.get('/partial-encrypted/');
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).not.toContain('PARTIAL-ZH-SECRET');
+    expect(html).not.toContain('PARTIAL-EN-SECRET');
+    expect(html).toContain('data-hbe-partial="true"');
+    expect(html).toContain('data-hbe-partial-data');
+  });
+
+  test('partial blocks with the same password unlock in both language containers', async ({ page }) => {
+    await page.goto('/partial-encrypted/');
+
+    const zhBlock = page.locator('div[lang="zh-CN"] .hbe-partial-container').first();
+    const enBlock = page.locator('div[lang="en"] .hbe-partial-container').first();
+    await expect(zhBlock.locator('.hbe-partial-password')).toBeVisible();
+    await expect(enBlock.locator('.hbe-partial-password')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('PARTIAL-ZH-SECRET');
+    await expect(page.locator('body')).not.toContainText('PARTIAL-EN-SECRET');
+
+    await zhBlock.locator('.hbe-partial-password').fill('shared-secret');
+    await zhBlock.locator('.hbe-partial-password').press('Enter');
+
+    await expect(page.locator('body')).toContainText('PARTIAL-ZH-SECRET');
+    await expect(page.locator('body')).toContainText('PARTIAL-EN-SECRET');
+    await expect(page.locator('.hbe-partial-decrypted-content')).toHaveCount(2);
+  });
+
+  test('partial language blocks with different passwords stay independent', async ({ page }) => {
+    await page.goto('/partial-language-encrypted/');
+
+    const zhBlock = page.locator('div[lang="zh-CN"] .hbe-partial-container').first();
+    const enBlock = page.locator('div[lang="en"] .hbe-partial-container').first();
+
+    await zhBlock.locator('.hbe-partial-password').fill('zh-secret');
+    await zhBlock.locator('.hbe-partial-password').press('Enter');
+    await expect(page.locator('body')).toContainText('DIFFERENT-ZH-SECRET');
+    await expect(page.locator('body')).not.toContainText('DIFFERENT-EN-SECRET');
+    await expect(enBlock.locator('.hbe-partial-password')).toBeVisible();
+
+    await enBlock.locator('.hbe-partial-password').fill('en-secret');
+    await enBlock.locator('.hbe-partial-password').press('Enter');
+    await expect(page.locator('body')).toContainText('DIFFERENT-EN-SECRET');
+  });
+
   test('non-ASCII button text stays centered on its own line', async ({ page }) => {
     await page.goto('/non-ascii-button-default/');
     await expect(page.locator('#hbePass')).toBeVisible();

@@ -31,6 +31,10 @@
 
 - 支持按标签加密.
 
+- 支持局部内容加密. 局部区块与整篇加密共用 PBKDF2-SHA256 + AES-256-GCM
+  协议, 且不会启用 `autoSave`. 密码只保存在当前页面内存中, 因此同密码的
+  其它区块无需再次输入.
+
 - 所有的核心功能都是由原生的 API 所提供的. 在 Node.js中, 我们使用 [Crypto](https://nodejs.org/dist/latest-v12.x/docs/api/crypto.html). 在浏览器中, 我们使用 [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API).
 
 - [PBKDF2](https://tools.ietf.org/html/rfc2898) 与 [SHA-256](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf) 被用于派生密钥, 我们使用 [AES-256-GCM](https://csrc.nist.gov/publications/detail/sp/800-38d/final) 进行带认证的加解密 — GCM 自带的 auth tag 即可检测密文被篡改 (取代了 v3 中独立的 HMAC 步骤).
@@ -131,6 +135,57 @@ password: hello
 ## 设置优先级
 
 文章信息头 > 按标签加密
+
+## 局部内容加密
+
+使用一对 HTML 注释包住需要保护的内容. `hbe-start:` 后面的值就是
+该区块的密码:
+
+```markdown
+公开内容.
+
+<!-- hbe-start:shared-password -->
+
+这段 HTML 会在 Hexo 构建期间被加密.
+
+<!-- hbe-end -->
+
+后续仍然是公开内容.
+```
+
+局部加密与语言切换刻意独立设计. 如果文章有中英文内容, 请在每个语言块内
+分别放置一对标记, 不要用一对标记同时包住中英文:
+
+```markdown
+<!-- i18n:zh-CN -->
+公开中文.
+
+<!-- hbe-start:shared-password -->
+中文私密内容.
+<!-- hbe-end -->
+<!-- i18n:en -->
+Public English.
+
+<!-- hbe-start:shared-password -->
+Private English content.
+<!-- hbe-end -->
+<!-- i18n:end -->
+```
+
+两个区块也可以使用不同密码. 此时切换语言后会显示另一个区块自己的密码
+输入框. 如果密码相同, 输入一次即可解锁当前页面内的两个区块; 密码不会写入
+`localStorage`.
+
+规则:
+
+- 局部区块不能跨越 `<!-- more -->`.
+- 不能嵌套区块, 也不能遗漏开始或结束标记. 构建会直接失败, 不会发布含糊
+  的结果.
+- 不能同时使用局部标记和整篇 `password` 或匹配的加密标签.
+- 不要把标记中的密码提交到公开可读的源码仓库. 构建后的 HTML 会移除密码,
+  但 Markdown 源文件在构建时必然包含它.
+- 局部内容不会进入初始 TOC. 解密后其中的标题会成为普通标题; 第一版暂不
+  集成 TOC.
 
 ## 高级设置
 

@@ -25,6 +25,11 @@
 
 - Support preset tag-specified password.
 
+- Support partial encryption with independent blocks. Partial blocks use the
+  same PBKDF2-SHA256 + AES-256-GCM wire format as full-post encryption, and
+  never enable `autoSave`. The password is kept only in page memory so another
+  block using the same password can unlock without asking again.
+
 - All functions are provided by the native APIs. We use [Crypto](https://nodejs.org/dist/latest-v12.x/docs/api/crypto.html) in Node.js, and use [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) in Browsers.
 
 - [PBKDF2](https://tools.ietf.org/html/rfc2898) with [SHA-256](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf) is used to derive keys, and we use [AES-256-GCM](https://csrc.nist.gov/publications/detail/sp/800-38d/final) for both encryption and authenticated decryption — the GCM auth tag detects any modification of the ciphertext (replacing the v3 separate HMAC step).
@@ -137,6 +142,62 @@ password: hello
 ## Password Priority
 
 post's front matter > encrypt tags
+
+## Partial content encryption
+
+Use a pair of HTML comments around the content to protect. The value after
+`hbe-start:` is the password used for that block:
+
+```markdown
+Public content.
+
+<!-- hbe-start:shared-password -->
+
+This HTML is encrypted during the Hexo build.
+
+<!-- hbe-end -->
+
+More public content.
+```
+
+Partial encryption is deliberately independent from language switching. Put a
+separate pair inside each language block instead of wrapping both languages in
+one pair:
+
+```markdown
+<!-- i18n:zh-CN -->
+公开中文。
+
+<!-- hbe-start:shared-password -->
+中文私密内容。
+<!-- hbe-end -->
+<!-- i18n:en -->
+Public English.
+
+<!-- hbe-start:shared-password -->
+Private English content.
+<!-- hbe-end -->
+<!-- i18n:end -->
+```
+
+The two blocks may use different passwords. In that case, switching language
+shows the other block's own password form. With the same password, entering it
+once unlocks both blocks in the current page; the password is not stored in
+`localStorage`.
+
+Rules:
+
+- Do not let a block cross `<!-- more -->`.
+- Do not nest blocks or leave a marker unmatched; the build fails instead of
+  publishing ambiguous output.
+- Do not combine partial markers with a full-post `password` or matching
+  encrypted tag.
+- Keep the marker password out of publicly readable source repositories. It is
+  removed from generated HTML, but it is necessarily present in the Markdown
+  source during the build.
+- Partial content is not added to the initial TOC. Headings inside it become
+  ordinary headings after decryption; TOC integration is intentionally left
+  out of this first implementation.
 
 ## Advanced settings
 

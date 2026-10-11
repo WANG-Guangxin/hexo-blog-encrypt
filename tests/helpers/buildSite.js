@@ -13,6 +13,10 @@ const TAG_ONLY_TEMPLATE_REL = path.join('templates', 'tag-encrypted-post.md');
 const CALLBACK_TEMPLATE_REL = path.join('templates', 'callback-post.md');
 const NON_ASCII_BUTTON_TEMPLATE_REL = path.join('templates', 'non-ascii-button-post.md');
 const HIDDEN_BUTTON_TEMPLATE_REL = path.join('templates', 'hidden-button-post.md');
+const PARTIAL_TEMPLATE_RELS = [
+  path.join('templates', 'partial-encrypted-post.md'),
+  path.join('templates', 'partial-language-encrypted-post.md'),
+];
 const POSTS_REL = path.join('source', '_posts');
 
 /**
@@ -122,6 +126,18 @@ function materializePosts(fixtureDir, themes) {
   const hiddenButtonDest = path.join(postsDir, 'hidden-button-default.md');
   fs.writeFileSync(hiddenButtonDest, hiddenButtonBody, 'utf8');
   written.push(hiddenButtonDest);
+
+  const partialDestNames = [
+    'partial-encrypted.md',
+    'partial-language-encrypted.md',
+  ];
+  PARTIAL_TEMPLATE_RELS.forEach((templateRel, index) => {
+    const templatePath = path.join(fixtureDir, templateRel);
+    const body = fs.readFileSync(templatePath, 'utf8');
+    const dest = path.join(postsDir, partialDestNames[index]);
+    fs.writeFileSync(dest, body, 'utf8');
+    written.push(dest);
+  });
 
   return written;
 }

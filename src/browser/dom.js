@@ -62,8 +62,15 @@ function swapInDecryptedDOM(mainElement, plaintextHTML) {
   return decrypted;
 }
 
+function replaceElementWithDecryptedDOM(mainElement, plaintextHTML) {
+  const decrypted = convertHTMLToElement(plaintextHTML);
+  decrypted.classList.add('hbe', 'hbe-decrypted-content', 'hbe-partial-decrypted-content');
+  mainElement.parentNode.replaceChild(decrypted, mainElement);
+}
+
 module.exports = {
   getExecutableScript,
   convertHTMLToElement,
   swapInDecryptedDOM,
+  replaceElementWithDecryptedDOM,
 };

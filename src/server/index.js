@@ -5,6 +5,11 @@ const path = require('node:path');
 
 const { resolve } = require('./config');
 const { encrypt } = require('./crypto');
+const {
+  parsePartialBlocks,
+  transformPartialBlocks,
+  renderPartialContainer,
+} = require('./partial');
 const { createRenderer } = require('./template');
 const { createGenerator } = require('./generator');
 const { createLogger } = require('./logger');
@@ -57,6 +62,20 @@ function stableSaltFromPermalink(permalink) {
     .digest();
 }
 
+function stablePartialSaltFromPermalink(permalink, index) {
+  return crypto.createHash('sha256')
+    .update(STABLE_SALT_NAMESPACE)
+    .update('\0partial\0')
+    .update(permalink)
+    .update('\0')
+    .update(String(index))
+    .digest();
+}
+
+function hasPassword(value) {
+  return value !== undefined && value !== null && String(value) !== '';
+}
+
 function resolveTagPassword(hexoEncrypt, postTags) {
   if (!hexoEncrypt || !Array.isArray(hexoEncrypt.tags)) return null;
   const tags = normalizePostTags(postTags);
@@ -70,6 +89,21 @@ function resolveTagPassword(hexoEncrypt, postTags) {
       return { name: t.name, password: map[t.name] };
     }
   }
+  return null;
+}
+
+function resolveConfiguredFullPassword(hexo, data) {
+  if (hasPassword(data.password)) return data.password;
+  if (data.password === '') return null;
+
+  const tagMatch = resolveTagPassword(hexo.config && hexo.config.encrypt, data.tags);
+  if (tagMatch && hasPassword(tagMatch.password)) return tagMatch.password;
+
+  const hexoEncrypt = hexo.config && hexo.config.encrypt;
+  if (hexoEncrypt && typeof hexoEncrypt === 'object' && hasPassword(hexoEncrypt.password)) {
+    return hexoEncrypt.password;
+  }
+
   return null;
 }
 
@@ -91,6 +125,81 @@ function register(hexo) {
     sourcemapPath: BUNDLE_SOURCEMAP_PATH,
   });
 
+  function assetHrefs() {
+    const root = normalizeRoot(hexo.config && hexo.config.root);
+    const routes = assetGenerator();
+    const jsRoute = routes.find((r) => /^lib\/hbe\.[0-9a-f]{10}\.js$/.test(r.path));
+    const cssRoute = routes.find((r) => r.path === 'css/hbe.style.css');
+    return {
+      jsHref: root + jsRoute.path,
+      cssHref: root + cssRoute.path,
+    };
+  }
+
+  function renderPartialBlock(content, password, index, data, logger) {
+    const cfg = resolve(hexo.config, Object.assign({}, data, { password }), logger);
+    if (cfg === null) {
+      throw new Error('hexo-blog-encrypt: partial encryption password cannot be empty');
+    }
+
+    logger.updateSilent(!!cfg.silent);
+    const stableSaltEnabled = cfg.stableSalt === true
+      && typeof data.permalink === 'string'
+      && data.permalink.length > 0;
+    const { salt, nonce, ciphertext } = encrypt(content, cfg.password, {
+      iterations: cfg.kdf.iterations,
+      salt: stableSaltEnabled
+        ? stablePartialSaltFromPermalink(data.permalink, index)
+        : undefined,
+    });
+    const buttonShow = !cfg.decryptButton || cfg.decryptButton.show !== false;
+    const buttonText = (cfg.decryptButton && typeof cfg.decryptButton.text === 'string')
+      ? cfg.decryptButton.text
+      : 'Decrypt';
+
+    return renderPartialContainer({
+      format: FORMAT_VERSION,
+      ciphertextHex: ciphertext.toString('hex'),
+      saltHex: salt.toString('hex'),
+      nonceHex: nonce.toString('hex'),
+      message: cfg.message,
+      wpm: cfg.wrong_pass_message,
+      whm: cfg.wrong_hash_message,
+      buttonShow,
+      buttonText,
+      kdfIterations: cfg.kdf.iterations,
+    });
+  }
+
+  function encryptPartial(data, logger) {
+    const partialBlocks = parsePartialBlocks(data.content);
+    if (partialBlocks.length === 0) return false;
+
+    if (resolveConfiguredFullPassword(hexo, data) !== null) {
+      throw new Error(
+        'hexo-blog-encrypt: a post cannot combine full-post and partial encryption'
+      );
+    }
+
+    const transform = (html) => transformPartialBlocks(
+      html,
+      (content, password, index) => renderPartialBlock(content, password, index, data, logger)
+    ).content;
+
+    data.content = transform(data.content);
+    if (typeof data.excerpt === 'string') data.excerpt = transform(data.excerpt);
+    if (typeof data.more === 'string') data.more = transform(data.more);
+
+    const { jsHref, cssHref } = assetHrefs();
+    data.content += `<script data-pjax src="${jsHref}"></script>`;
+    data.content += `<link href="${cssHref}" rel="stylesheet" type="text/css">`;
+    data.partial_encrypt = true;
+
+    const titleText = (typeof data.title === 'string') ? data.title.trim() : '(untitled)';
+    logger.info(`hexo-blog-encrypt: encrypting partial content in "${titleText}".`);
+    return true;
+  }
+
   hexo.extend.filter.register('after_post_render', function v4Filter(data) {
     // Idempotence: stamp a per-instance Symbol on `data` after a successful
     // pass so re-entry on the same object is a no-op. We deliberately do NOT
@@ -99,6 +208,11 @@ function register(hexo) {
     // user could legitimately populate) as the marker — both have caused
     // silent-skip footguns in earlier designs.
     if (data[HBE_ENCRYPTED] === true) {
+      return data;
+    }
+
+    if (encryptPartial(data, logger)) {
+      data[HBE_ENCRYPTED] = true;
       return data;
     }
 
@@ -172,12 +286,7 @@ function register(hexo) {
       autoSave: !!cfg.autoSave,
     });
 
-    const root = normalizeRoot(hexo.config && hexo.config.root);
-    const routes = assetGenerator();
-    const jsRoute = routes.find((r) => /^lib\/hbe\.[0-9a-f]{10}\.js$/.test(r.path));
-    const cssRoute = routes.find((r) => r.path === 'css/hbe.style.css');
-    const jsHref = root + jsRoute.path;
-    const cssHref = root + cssRoute.path;
+    const { jsHref, cssHref } = assetHrefs();
 
     data.content = rendered +
       `<script data-pjax src="${jsHref}"></script>` +
