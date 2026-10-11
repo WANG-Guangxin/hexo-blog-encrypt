@@ -138,10 +138,6 @@ function register(hexo) {
 
   function renderPartialBlock(content, password, index, data, logger) {
     const cfg = resolve(hexo.config, Object.assign({}, data, { password }), logger);
-    if (cfg === null) {
-      throw new Error('hexo-blog-encrypt: partial encryption password cannot be empty');
-    }
-
     logger.updateSilent(!!cfg.silent);
     const stableSaltEnabled = cfg.stableSalt === true
       && typeof data.permalink === 'string'

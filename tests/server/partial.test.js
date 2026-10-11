@@ -44,6 +44,24 @@ test('transformPartialBlocks replaces markers and preserves public content', () 
   assert.equal(result.blocks.length, 1);
 });
 
+test('transformPartialBlocks leaves content unchanged when there are no blocks', () => {
+  const result = transformPartialBlocks('<p>public</p>', () => {
+    throw new Error('transform must not run without partial blocks');
+  });
+
+  assert.equal(result.content, '<p>public</p>');
+  assert.deepEqual(result.blocks, []);
+});
+
+test('transformPartialBlocks treats null input as empty content', () => {
+  const result = transformPartialBlocks(null, () => {
+    throw new Error('transform must not run without partial blocks');
+  });
+
+  assert.equal(result.content, null);
+  assert.deepEqual(result.blocks, []);
+});
+
 test('markers inside escaped code are ordinary text', () => {
   const html = '<pre><code>&lt;!-- hbe-start:pw --&gt;secret&lt;!-- hbe-end --&gt;</code></pre>';
 
@@ -97,7 +115,7 @@ test('renderPartialContainer escapes UI text and keeps ciphertext in a data node
     nonceHex: 'bb',
     ciphertextHex: 'cc',
     kdfIterations: 250000,
-    message: '<message>',
+    message: '<message>&',
     wpm: '" onmouseover="alert(1)',
     whm: 'wrong',
     buttonShow: false,
@@ -107,7 +125,7 @@ test('renderPartialContainer escapes UI text and keeps ciphertext in a data node
   assert.match(html, /data-hbe-partial="true"/);
   assert.match(html, /data-hbe-partial-data>cc<\/script>/);
   assert.match(html, /data-wpm="&quot; onmouseover=&quot;alert\(1\)"/);
-  assert.match(html, /&lt;message&gt;/);
+  assert.match(html, /&lt;message&gt;&amp;/);
   assert.match(html, /&lt;open&gt;/);
   assert.doesNotMatch(html, /data-hbe-ciphertext=/);
   assert.match(html, /hbe-button-hidden/);

@@ -102,6 +102,33 @@ test('independent language blocks produce independent decryptable payloads', asy
   assert.equal(data.content.includes('English secret'), false);
 });
 
+test('partial stableSalt reuses salt but keeps nonce fresh', async () => {
+  hexo.config.encrypt = { kdf: { iterations: ITERATIONS }, stableSalt: true };
+  const opts = {
+    title: 'partial-stable',
+    content: '<!-- hbe-start:secret -->\n<p>stable partial</p>\n<!-- hbe-end -->',
+    permalink: 'https://example.test/partial-stable/',
+  };
+  const first = partialData(opts.content, opts);
+  const second = partialData(opts.content, opts);
+
+  await hexo.execFilter('after_post_render', first, { context: hexo });
+  await hexo.execFilter('after_post_render', second, { context: hexo });
+
+  const firstPayload = extractPayloads(first.content)[0];
+  const secondPayload = extractPayloads(second.content)[0];
+  assert.equal(firstPayload.saltHex, secondPayload.saltHex);
+  assert.notEqual(firstPayload.nonceHex, secondPayload.nonceHex);
+  assert.equal(
+    decryptPayload({ password: 'secret', ...firstPayload }),
+    '\n<p>stable partial</p>\n'
+  );
+  assert.equal(
+    decryptPayload({ password: 'secret', ...secondPayload }),
+    '\n<p>stable partial</p>\n'
+  );
+});
+
 test('partial markers cannot cross the more boundary in the filter pipeline', async () => {
   hexo.config.encrypt = {};
   const data = partialData([
@@ -129,4 +156,58 @@ test('partial and full-post encryption cannot be combined', async () => {
     hexo.execFilter('after_post_render', data, { context: hexo }),
     /cannot combine full-post and partial encryption/
   );
+});
+
+test('partial encryption conflicts with a globally configured full-post password', async () => {
+  hexo.config.encrypt = { password: 'whole-post' };
+  const data = partialData(
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->'
+  );
+
+  await assert.rejects(
+    hexo.execFilter('after_post_render', data, { context: hexo }),
+    /cannot combine full-post and partial encryption/
+  );
+});
+
+test('an empty front-matter password does not disable partial encryption', async () => {
+  hexo.config.encrypt = {};
+  const data = partialData(
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
+    { password: '' }
+  );
+
+  await hexo.execFilter('after_post_render', data, { context: hexo });
+
+  assert.equal(data.partial_encrypt, true);
+});
+
+test('partial encryption conflicts with a matching encrypted tag', async () => {
+  hexo.config.encrypt = {
+    tags: [{ name: 'Secret', password: 'whole-post' }],
+  };
+  const data = partialData(
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
+    { tags: [{ name: 'Secret' }] }
+  );
+
+  await assert.rejects(
+    hexo.execFilter('after_post_render', data, { context: hexo }),
+    /cannot combine full-post and partial encryption/
+  );
+});
+
+test('partial encryption falls back for non-string button text and title', async () => {
+  hexo.config.encrypt = {
+    decryptButton: { text: 12345 },
+  };
+  const data = partialData(
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
+    { title: 12345 }
+  );
+
+  await hexo.execFilter('after_post_render', data, { context: hexo });
+
+  assert.equal(data.partial_encrypt, true);
+  assert.match(data.content, />Decrypt<\/button>/);
 });
