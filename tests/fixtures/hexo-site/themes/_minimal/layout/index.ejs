@@ -1,1 +1,5 @@
-<%- page.content %>
+<% page.posts.each(function(post) { %>
+	<article class="post-card">
+		<%- post.excerpt %>
+	</article>
+<% }) %>

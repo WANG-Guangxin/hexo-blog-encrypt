@@ -211,3 +211,23 @@ test('partial encryption falls back for non-string button text and title', async
   assert.equal(data.partial_encrypt, true);
   assert.match(data.content, />Decrypt<\/button>/);
 });
+
+test('runtime assets are injected once for excerpt pages and PJAX navigation', async () => {
+  hexo.config.root = '/';
+  const html = '<html><head></head><body><div class="hbe-partial-container"></div></body></html>';
+  const first = await hexo.execFilter('_after_html_render', html, { context: hexo });
+  const second = await hexo.execFilter('_after_html_render', first, { context: hexo });
+
+  assert.equal((first.match(/data-hbe-runtime/g) || []).length, 2);
+  assert.equal((second.match(/data-hbe-runtime/g) || []).length, 2);
+  assert.match(first, /<link data-hbe-runtime href="\/css\/hbe\.style\.css"/);
+  assert.match(first, /<body><div class="hbe-partial-container"><\/div><script data-pjax data-hbe-runtime src="\/lib\/hbe\.[0-9a-f]{10}\.js"><\/script><\/body>/);
+});
+
+test('runtime asset injection has fallbacks for fragment-like HTML', async () => {
+  const html = '<div class="hbe-partial-container"></div>';
+  const output = await hexo.execFilter('_after_html_render', html, { context: hexo });
+
+  assert.match(output, /^<link data-hbe-runtime href="\/css\/hbe\.style\.css"/);
+  assert.match(output, /data-pjax data-hbe-runtime src="\/lib\/hbe\.[0-9a-f]{10}\.js"><\/script>$/);
+});

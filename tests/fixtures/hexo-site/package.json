@@ -12,6 +12,7 @@
   "dependencies": {
     "hexo": "^7",
     "hexo-blog-encrypt": "file:../../..",
+    "hexo-generator-index": "^2.0.0",
     "hexo-renderer-ejs": "^2",
     "hexo-renderer-marked": "^7"
   }

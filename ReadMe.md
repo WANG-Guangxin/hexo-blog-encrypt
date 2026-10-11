@@ -188,6 +188,9 @@ once unlocks both blocks in the current page; the password is not stored in
 Rules:
 
 - Do not let a block cross `<!-- more -->`.
+- A complete block before `<!-- more -->` is included in the post excerpt and
+  can be decrypted on index/archive pages. A block after `<!-- more -->` is
+  shown only on the full post page.
 - Do not nest blocks or leave a marker unmatched; the build fails instead of
   publishing ambiguous output.
 - Do not combine partial markers with a full-post `password` or matching

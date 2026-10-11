@@ -17,6 +17,10 @@ const PARTIAL_TEMPLATE_RELS = [
   path.join('templates', 'partial-encrypted-post.md'),
   path.join('templates', 'partial-language-encrypted-post.md'),
 ];
+const PARTIAL_BEFORE_MORE_TEMPLATE_REL = path.join(
+  'templates',
+  'partial-before-more-post.md'
+);
 const POSTS_REL = path.join('source', '_posts');
 
 /**
@@ -138,6 +142,12 @@ function materializePosts(fixtureDir, themes) {
     fs.writeFileSync(dest, body, 'utf8');
     written.push(dest);
   });
+
+  const partialBeforeMorePath = path.join(fixtureDir, PARTIAL_BEFORE_MORE_TEMPLATE_REL);
+  const partialBeforeMoreBody = fs.readFileSync(partialBeforeMorePath, 'utf8');
+  const partialBeforeMoreDest = path.join(postsDir, 'partial-before-more.md');
+  fs.writeFileSync(partialBeforeMoreDest, partialBeforeMoreBody, 'utf8');
+  written.push(partialBeforeMoreDest);
 
   return written;
 }

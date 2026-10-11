@@ -213,6 +213,22 @@ for (const theme of themes) {
 // ─── Single-theme global v4 specs ────────────────────────────────────────
 
 test.describe('v4 UX (single-theme)', () => {
+  test('partial encryption works inside the home-page excerpt', async ({ request, page }) => {
+    const response = await request.get('/index.html');
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).not.toContain('HOME-PARTIAL-SECRET');
+    expect(html).toContain('data-hbe-partial="true"');
+    expect(html).toMatch(/data-hbe-runtime/);
+
+    await page.goto('/index.html');
+    const block = page.locator('.hbe-partial-container').first();
+    await expect(block.locator('.hbe-partial-password')).toBeVisible();
+    await block.locator('.hbe-partial-password').fill('home-secret');
+    await block.locator('.hbe-partial-password').press('Enter');
+    await expect(page.locator('body')).toContainText('HOME-PARTIAL-SECRET');
+  });
+
   test('partial encryption removes secrets from static HTML', async ({ request }) => {
     const response = await request.get('/partial-encrypted/');
     expect(response.status()).toBe(200);

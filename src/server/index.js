@@ -136,6 +136,31 @@ function register(hexo) {
     };
   }
 
+  function injectRuntimeAssets(html) {
+    const { jsHref, cssHref } = assetHrefs();
+    const cssTag = `<link data-hbe-runtime href="${cssHref}" rel="stylesheet" type="text/css">`;
+    const jsTag = `<script data-pjax data-hbe-runtime src="${jsHref}"></script>`;
+    let output = html;
+
+    if (!output.includes(`href="${cssHref}"`)) {
+      if (/<\/head>/i.test(output)) {
+        output = output.replace(/<\/head>/i, `${cssTag}</head>`);
+      } else {
+        output = cssTag + output;
+      }
+    }
+
+    if (!output.includes(`src="${jsHref}"`)) {
+      if (/<\/body>/i.test(output)) {
+        output = output.replace(/<\/body>/i, `${jsTag}</body>`);
+      } else {
+        output += jsTag;
+      }
+    }
+
+    return output;
+  }
+
   function renderPartialBlock(content, password, index, data, logger) {
     const cfg = resolve(hexo.config, Object.assign({}, data, { password }), logger);
     logger.updateSilent(!!cfg.silent);
@@ -293,6 +318,8 @@ function register(hexo) {
 
     return data;
   }, 1000);
+
+  hexo.extend.filter.register('after_render:html', injectRuntimeAssets, 1000);
 
   hexo.extend.generator.register('hexo-blog-encrypt', assetGenerator);
 }
