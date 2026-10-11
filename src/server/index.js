@@ -8,7 +8,6 @@ const { encrypt } = require('./crypto');
 const {
   parsePartialBlocks,
   transformPartialBlocks,
-  renderPartialContainer,
 } = require('./partial');
 const { createRenderer } = require('./template');
 const { createGenerator } = require('./generator');
@@ -161,7 +160,7 @@ function register(hexo) {
     return output;
   }
 
-  function renderPartialBlock(content, password, index, data, logger) {
+  function renderPartialBlock(content, password, index, data, logger, block) {
     const cfg = resolve(hexo.config, Object.assign({}, data, { password }), logger);
     logger.updateSilent(!!cfg.silent);
     const stableSaltEnabled = cfg.stableSalt === true
@@ -178,17 +177,30 @@ function register(hexo) {
       ? cfg.decryptButton.text
       : 'Decrypt';
 
-    return renderPartialContainer({
+    const partialId = `hbe-partial-${index}`;
+    return renderer.render({
+      theme: cfg.theme,
       format: FORMAT_VERSION,
-      ciphertextHex: ciphertext.toString('hex'),
-      saltHex: salt.toString('hex'),
-      nonceHex: nonce.toString('hex'),
-      message: cfg.message,
+      ciphertext: ciphertext.toString('hex'),
+      salt: salt.toString('hex'),
+      nonce: nonce.toString('hex'),
+      message: block.message === undefined ? cfg.message : block.message,
       wpm: cfg.wrong_pass_message,
       whm: cfg.wrong_hash_message,
-      buttonShow,
+      buttonClass: buttonShow ? '' : ' hbe-button-hidden',
       buttonText,
       kdfIterations: cfg.kdf.iterations,
+      autoSave: false,
+      containerId: partialId,
+      containerClass: ' hbe-partial-container',
+      containerAttribute: ' data-hbe-partial="true"',
+      dataId: `${partialId}-data`,
+      dataType: 'application/octet-stream',
+      dataAttribute: ' data-hbe-partial-data',
+      formId: `${partialId}-form`,
+      formAttribute: ' data-hbe-partial-form',
+      inputId: `${partialId}-password`,
+      inputClass: ' hbe-partial-password',
     });
   }
 
@@ -204,7 +216,14 @@ function register(hexo) {
 
     const transform = (html) => transformPartialBlocks(
       html,
-      (content, password, index) => renderPartialBlock(content, password, index, data, logger)
+      (content, password, index, block) => renderPartialBlock(
+        content,
+        password,
+        index,
+        data,
+        logger,
+        block
+      )
     ).content;
 
     data.content = transform(data.content);
@@ -305,6 +324,16 @@ function register(hexo) {
       buttonText,
       kdfIterations: cfg.kdf.iterations,
       autoSave: !!cfg.autoSave,
+      containerId: 'hexo-blog-encrypt',
+      containerClass: '',
+      containerAttribute: '',
+      dataId: 'hbeData',
+      dataType: 'hbeData',
+      dataAttribute: '',
+      formId: 'hbeForm',
+      formAttribute: '',
+      inputId: 'hbePass',
+      inputClass: '',
     });
 
     const { jsHref, cssHref } = assetHrefs();

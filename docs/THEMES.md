@@ -13,12 +13,13 @@ The 8 themes that ship today are: `default`, `blink`, `flip`, `shrink`,
 ## Adding a theme
 
 1. Create `lib/hbe.<name>.html` containing:
-   - All 11 `{{hbe...}}` placeholders (see below) — the server-side filter
+   - All 21 `{{hbe...}}` placeholders (see below) — the server-side filter
      substitutes them at render time.
-   - A wrapper element with `id="hexo-blog-encrypt"` (the browser bundle finds
-     it by id) carrying the seven `data-*` attributes listed below.
-   - A form `<form id="hbeForm">` containing:
-     - A password input `<input id="hbePass" type="password">`.
+   - A wrapper element with `id="{{hbeContainerId}}"` and class
+     `hbe hbe-container`; full-post mode uses the historical id and partial
+     mode uses a unique id plus the partial data attribute.
+   - A form `<form id="{{hbeFormId}}">` containing:
+     - A password input `<input id="{{hbeInputId}}" type="password">`.
      - A submit button with class `hbe-button`.
      - An empty alert region: `<div role="alert" aria-live="polite">…</div>`.
      - **No `onsubmit` JS** — the bundle attaches a `submit` listener that
@@ -37,7 +38,7 @@ filename is the source of truth.
 
 ## Required placeholders
 
-Every `lib/hbe.<name>.html` MUST contain these 11 placeholders verbatim. They
+Every `lib/hbe.<name>.html` MUST contain these 21 placeholders verbatim. They
 are string-substituted by `src/server/template.js` for each encrypted post:
 
 | Placeholder                | Field          | Render mode       | Meaning                                                                        |
@@ -53,6 +54,26 @@ are string-substituted by `src/server/template.js` for each encrypted post:
 | `{{hbeSalt}}`              | `salt`         | hex (validated)   | Per-post 32-byte PBKDF2 salt as 64 hex chars.                                  |
 | `{{hbeNonce}}`             | `nonce`        | hex (validated)   | Per-post 12-byte AES-GCM nonce as 24 hex chars.                                |
 | `{{hbeEncryptedData}}`     | `ciphertext`   | hex (validated)   | AES-256-GCM ciphertext concatenated with its 16-byte auth tag, as hex.         |
+
+The ten structural placeholders below make the same theme work for partial
+blocks. Full-post mode receives the historical values; partial mode receives
+unique ids and data attributes:
+
+| Placeholder                 | Full-post value            | Partial-mode value |
+| --------------------------- | -------------------------- | ------------------ |
+| `{{hbeContainerId}}`        | `hexo-blog-encrypt`        | unique `hbe-partial-*` id |
+| `{{hbeContainerClass}}`     | empty                      | ` hbe-partial-container` |
+| `{{hbeContainerAttribute}}` | empty                      | ` data-hbe-partial="true"` |
+| `{{hbeDataId}}`              | `hbeData`                  | unique data-node id |
+| `{{hbeDataType}}`            | `hbeData`                  | `application/octet-stream` |
+| `{{hbeDataAttribute}}`       | empty                      | ` data-hbe-partial-data` |
+| `{{hbeFormId}}`              | `hbeForm`                  | unique form id |
+| `{{hbeFormAttribute}}`       | empty                      | ` data-hbe-partial-form` |
+| `{{hbeInputId}}`             | `hbePass`                  | unique password-input id |
+| `{{hbeInputClass}}`          | empty                      | ` hbe-partial-password` |
+
+The `raw` structural placeholders are plugin-owned attribute fragments. Place
+them exactly where the shipped themes place them; do not HTML-escape them again.
 
 The seven `data-*` attributes the browser bundle reads from the
 `#hexo-blog-encrypt` wrapper are:
@@ -82,11 +103,12 @@ To keep the one-file-drop contract intact:
   config flow in `src/server/config.js`) AND the browser bundle
   (`src/browser/main.js`'s `readWireFormat`). These two halves share an
   implicit wire format and the version is bumped via `{{hbeFormat}}`.
-- **Don’t** rename or remove any of the 11 placeholders. Existing themes —
+- **Don’t** rename or remove any of the 21 placeholders. Existing themes —
   and every encrypted post in the wild — depend on them.
-- **Don’t** move or rename the `#hexo-blog-encrypt` wrapper, the `#hbeForm`
-  form, the `#hbePass` input, the `.hbe-button` submit button, or the
-  `[role="alert"]` region. The bundle selects them by id / class / role.
+- **Don’t** remove the container/form/input placeholders, the `.hbe-button`
+  submit button, or the `[role="alert"]` region. Full-post mode uses the
+  historical ids; partial mode uses generated ids plus
+  `data-hbe-partial-form` and `hbe-partial-password`.
 - **Don’t** ship a theme without running `npm run test`. The harness guards
   the contract; CI will reject regressions.
 

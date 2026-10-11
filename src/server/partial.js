@@ -1,15 +1,70 @@
 'use strict';
 
-const PARTIAL_MARKER_RE = /<!--\s*(hbe-start\s*:\s*([\s\S]*?)|hbe-end)\s*-->/gi;
+const PARTIAL_MARKER_RE = /<!--\s*(hbe-start\b[\s\S]*?|hbe-end)\s*-->/gi;
+const PARTIAL_MESSAGE_RE = /^\s*<!--\s*hbe-message\s*:\s*([\s\S]*?)\s*-->\s*/i;
 const MORE_MARKER_RE = /<!--\s*more\s*-->|<span\b[^>]*\bid\s*=\s*["']more["'][^>]*>\s*<\/span>/i;
-const ATTR_ESCAPE_MAP = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-  '`': '&#96;',
-};
+const START_ATTRIBUTE_RE = /([a-z][a-z0-9-]*)\s*=\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/y;
+
+function unescapeAttributeValue(value) {
+  return value.replace(/\\([\\'"])/g, '$1');
+}
+
+function validateSingleLineValue(value, field) {
+  if (/[\r\n]|-->/.test(value)) {
+    throw new Error(
+      `hexo-blog-encrypt: partial encryption ${field} must be a single-line value`
+    );
+  }
+  return value;
+}
+
+function parseStartMarker(marker) {
+  const spec = marker.slice('hbe-start'.length).trim();
+  if (spec.startsWith(':')) {
+    const password = validateSingleLineValue(spec.slice(1).trim(), 'password');
+    if (!password) {
+      throw new Error('hexo-blog-encrypt: partial encryption requires a password');
+    }
+    return {password, message: undefined};
+  }
+
+  if (!spec) {
+    throw new Error('hexo-blog-encrypt: partial encryption requires a password');
+  }
+
+  const optionSpec = spec.trim();
+  const options = Object.create(null);
+  let cursor = 0;
+  while (cursor < optionSpec.length) {
+    while (/\s/.test(optionSpec[cursor])) cursor += 1;
+
+    START_ATTRIBUTE_RE.lastIndex = cursor;
+    const match = START_ATTRIBUTE_RE.exec(optionSpec);
+    if (!match) {
+      throw new Error(
+        'hexo-blog-encrypt: partial encryption options must use quoted key="value" syntax'
+      );
+    }
+
+    const name = match[1];
+    if (name !== 'password' && name !== 'message') {
+      throw new Error(`hexo-blog-encrypt: unknown partial encryption option "${name}"`);
+    }
+    if (Object.prototype.hasOwnProperty.call(options, name)) {
+      throw new Error(`hexo-blog-encrypt: duplicate partial encryption option "${name}"`);
+    }
+
+    const quotedValue = match[2];
+    const value = unescapeAttributeValue(quotedValue.slice(1, -1));
+    options[name] = validateSingleLineValue(value, name);
+    cursor = START_ATTRIBUTE_RE.lastIndex;
+  }
+
+  if (!options.password) {
+    throw new Error('hexo-blog-encrypt: partial encryption requires a password');
+  }
+  return {password: options.password, message: options.message};
+}
 
 function parsePartialBlocks(html) {
   const source = String(html == null ? '' : html);
@@ -19,27 +74,29 @@ function parsePartialBlocks(html) {
 
   PARTIAL_MARKER_RE.lastIndex = 0;
   while ((match = PARTIAL_MARKER_RE.exec(source))) {
-    const marker = match[1].toLowerCase();
-    if (marker.startsWith('hbe-start')) {
+    const marker = match[1];
+    if (marker.toLowerCase().startsWith('hbe-start')) {
       if (open) {
         throw new Error('hexo-blog-encrypt: partial encryption blocks cannot be nested');
       }
 
-      const password = match[2].trim();
-      if (!password) {
-        throw new Error('hexo-blog-encrypt: partial encryption requires a password');
-      }
-      if (/[\r\n]|-->/.test(password)) {
-        throw new Error(
-          'hexo-blog-encrypt: partial encryption password must be a single-line value'
-        );
-      }
+      const {password, message} = parseStartMarker(marker);
 
       open = {
         password,
+        message,
         start: match.index,
         contentStart: PARTIAL_MARKER_RE.lastIndex,
       };
+
+      const messageMatch = PARTIAL_MESSAGE_RE.exec(source.slice(open.contentStart));
+      if (messageMatch) {
+        if (open.message !== undefined) {
+          throw new Error('hexo-blog-encrypt: partial encryption message is defined twice');
+        }
+        open.message = messageMatch[1].trim();
+        open.contentStart += messageMatch[0].length;
+      }
       continue;
     }
 
@@ -54,6 +111,7 @@ function parsePartialBlocks(html) {
 
     blocks.push({
       password: open.password,
+      message: open.message,
       start: open.start,
       end: PARTIAL_MARKER_RE.lastIndex,
       contentStart: open.contentStart,
@@ -89,50 +147,7 @@ function transformPartialBlocks(html, transform) {
   return { content: output, blocks };
 }
 
-function escapeAttr(value) {
-  return String(value).replace(/[&<>"'`]/g, (character) => ATTR_ESCAPE_MAP[character]);
-}
-
-function escapeText(value) {
-  return String(value).replace(/[&<>]/g, (character) => {
-    if (character === '&') return '&amp;';
-    if (character === '<') return '&lt;';
-    return '&gt;';
-  });
-}
-
-function renderPartialContainer(opts) {
-  const buttonClass = opts.buttonShow === false ? ' hbe-button-hidden' : '';
-  return [
-    '<div class="hbe hbe-container hbe-partial-container" data-hbe-partial="true"',
-    ` data-hbe-format="${escapeAttr(opts.format)}"`,
-    ` data-wpm="${escapeAttr(opts.wpm)}"`,
-    ` data-whm="${escapeAttr(opts.whm)}"`,
-    ` data-salt="${escapeAttr(opts.saltHex)}"`,
-    ` data-nonce="${escapeAttr(opts.nonceHex)}"`,
-    ` data-kdf-iterations="${escapeAttr(opts.kdfIterations)}"`,
-    ' data-auto-save="false"',
-    '>',
-    `  <script type="application/octet-stream" data-hbe-partial-data>${escapeText(opts.ciphertextHex)}</script>`,
-    '  <div class="hbe hbe-content">',
-    '    <form class="hbe hbe-form" data-hbe-partial-form onsubmit="return false">',
-    '      <div class="hbe hbe-input hbe-input-default">',
-    '        <input class="hbe hbe-input-field hbe-input-field-default hbe-partial-password"',
-    '               type="password" autocomplete="off">',
-    '        <label class="hbe hbe-input-label hbe-input-label-default">',
-    `          <span class="hbe hbe-input-label-content hbe-input-label-content-default">${escapeText(opts.message)}</span>`,
-    '        </label>',
-    '      </div>',
-    `      <button class="hbe hbe-button${buttonClass}" type="submit">${escapeText(opts.buttonText)}</button>`,
-    '      <div class="hbe hbe-error" role="alert" aria-live="polite"></div>',
-    '    </form>',
-    '  </div>',
-    '</div>',
-  ].join('\n');
-}
-
 module.exports = {
   parsePartialBlocks,
   transformPartialBlocks,
-  renderPartialContainer,
 };

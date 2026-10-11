@@ -138,13 +138,12 @@ password: hello
 
 ## 局部内容加密
 
-使用一对 HTML 注释包住需要保护的内容. `hbe-start:` 后面的值就是
-该区块的密码:
+使用一对 HTML 注释包住需要保护的内容. 推荐在开始标记中使用键值属性:
 
 ```markdown
 公开内容.
 
-<!-- hbe-start:shared-password -->
+<!-- hbe-start password="shared-password" message="请输入这一段的密码" -->
 
 这段 HTML 会在 Hexo 构建期间被加密.
 
@@ -152,6 +151,10 @@ password: hello
 
 后续仍然是公开内容.
 ```
+
+旧的简写 `<!-- hbe-start:shared-password -->` 仍然兼容, 其 message 会继承
+全局 `encrypt.message`. 更早版本使用的独立
+`<!-- hbe-message:... -->` 行也会继续支持, 但新文章建议使用结构化开始标记.
 
 局部加密与语言切换刻意独立设计. 如果文章有中英文内容, 请在每个语言块内
 分别放置一对标记, 不要用一对标记同时包住中英文:
@@ -175,6 +178,10 @@ Private English content.
 两个区块也可以使用不同密码. 此时切换语言后会显示另一个区块自己的密码
 输入框. 如果密码相同, 输入一次即可解锁当前页面内的两个区块; 密码不会写入
 `localStorage`.
+
+每个区块都可以使用 `message` 属性覆盖全局 `encrypt.message`. 属性值必须
+使用引号. 当前支持的属性是 `password` 和 `message`; 未知属性会让构建失败,
+不会被静默忽略.
 
 规则:
 

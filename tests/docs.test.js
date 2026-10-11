@@ -12,11 +12,21 @@ const codeowners = path.join(repoRoot, '.github', 'CODEOWNERS');
 const prTemplate = path.join(repoRoot, '.github', 'PULL_REQUEST_TEMPLATE.md');
 
 const REQUIRED_PLACEHOLDERS = [
+  '{{hbeContainerId}}',
+  '{{hbeContainerClass}}',
+  '{{hbeContainerAttribute}}',
   '{{hbeFormat}}',
   '{{hbeWrongPassMessage}}',
   '{{hbeWrongHashMessage}}',
   '{{hbeKdfIterations}}',
   '{{hbeAutoSave}}',
+  '{{hbeDataId}}',
+  '{{hbeDataType}}',
+  '{{hbeDataAttribute}}',
+  '{{hbeFormId}}',
+  '{{hbeFormAttribute}}',
+  '{{hbeInputId}}',
+  '{{hbeInputClass}}',
   '{{hbeMessage}}',
   '{{hbeButtonClass}}',
   '{{hbeButtonText}}',

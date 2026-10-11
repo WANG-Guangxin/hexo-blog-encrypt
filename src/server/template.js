@@ -29,14 +29,23 @@ function escapeText(value) {
 // Substitution table.
 // - 'attr': escape with the attribute-context escape (covers all six special chars + backtick).
 // - 'text': escape with the text-context escape (& < > only).
-// - 'raw' : insert verbatim. Used ONLY for already-hex-encoded crypto material whose
-//           character set is a strict subset of [0-9a-fA-F]+ (validated below).
+// - 'raw' : insert a plugin-owned, preformatted attribute fragment verbatim.
 const PLACEHOLDERS = [
+  { token: '{{hbeContainerId}}',         field: 'containerId',         mode: 'attr' },
+  { token: '{{hbeContainerClass}}',      field: 'containerClass',      mode: 'attr' },
+  { token: '{{hbeContainerAttribute}}',  field: 'containerAttribute',  mode: 'raw' },
   { token: '{{hbeFormat}}',            field: 'format',         mode: 'attr' },
   { token: '{{hbeWrongPassMessage}}',  field: 'wpm',            mode: 'attr' },
   { token: '{{hbeWrongHashMessage}}',  field: 'whm',            mode: 'attr' },
   { token: '{{hbeKdfIterations}}',     field: 'kdfIterations',  mode: 'attr' },
   { token: '{{hbeAutoSave}}',          field: 'autoSave',       mode: 'attr' },
+  { token: '{{hbeDataId}}',             field: 'dataId',             mode: 'attr' },
+  { token: '{{hbeDataType}}',           field: 'dataType',           mode: 'attr' },
+  { token: '{{hbeDataAttribute}}',      field: 'dataAttribute',      mode: 'attr' },
+  { token: '{{hbeFormId}}',             field: 'formId',             mode: 'attr' },
+  { token: '{{hbeFormAttribute}}',      field: 'formAttribute',      mode: 'attr' },
+  { token: '{{hbeInputId}}',            field: 'inputId',            mode: 'attr' },
+  { token: '{{hbeInputClass}}',         field: 'inputClass',         mode: 'attr' },
   { token: '{{hbeMessage}}',           field: 'message',        mode: 'text' },
   { token: '{{hbeButtonClass}}',       field: 'buttonClass',    mode: 'attr' },
   { token: '{{hbeButtonText}}',        field: 'buttonText',     mode: 'text' },
@@ -59,6 +68,7 @@ function substitute(template, opts) {
     let replacement;
     if (mode === 'attr') replacement = escapeAttr(raw);
     else if (mode === 'text') replacement = escapeText(raw);
+    else if (mode === 'raw') replacement = String(raw);
     else if (mode === 'hex') {
       // Defence-in-depth: refuse to splice anything that isn't hex.
       const s = String(raw);

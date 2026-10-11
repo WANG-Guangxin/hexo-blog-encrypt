@@ -6,7 +6,6 @@ const assert = require('node:assert/strict');
 const {
   parsePartialBlocks,
   transformPartialBlocks,
-  renderPartialContainer,
 } = require('../../src/server/partial');
 
 test('parsePartialBlocks returns each password and plaintext range', () => {
@@ -28,6 +27,64 @@ test('parsePartialBlocks returns each password and plaintext range', () => {
   assert.equal(blocks[0].content, '\n<p>first</p>\n');
   assert.equal(blocks[1].password, 'second');
   assert.equal(blocks[1].content, '\n<p>second</p>\n');
+});
+
+test('parsePartialBlocks reads a per-block message outside the ciphertext', () => {
+  const blocks = parsePartialBlocks([
+    '<!-- hbe-start:secret -->',
+    '<!-- hbe-message: Enter this block password -->',
+    '<p>secret</p>',
+    '<!-- hbe-end -->',
+  ].join('\n'));
+
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].message, 'Enter this block password');
+  assert.equal(blocks[0].content, '<p>secret</p>\n');
+});
+
+test('parsePartialBlocks supports structured password and message options', () => {
+  const blocks = parsePartialBlocks([
+    '<!-- hbe-start password="secret:with:colon" message="Enter: this block password" -->',
+    '<p>secret</p>',
+    '<!-- hbe-end -->',
+  ].join('\n'));
+
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].password, 'secret:with:colon');
+  assert.equal(blocks[0].message, 'Enter: this block password');
+  assert.equal(blocks[0].content, '\n<p>secret</p>\n');
+});
+
+test('parsePartialBlocks rejects malformed or unknown structured options', () => {
+  assert.throws(
+    () => parsePartialBlocks('<!-- hbe-start message="missing password" -->secret<!-- hbe-end -->'),
+    /requires a password/
+  );
+  assert.throws(
+    () => parsePartialBlocks('<!-- hbe-start -->secret<!-- hbe-end -->'),
+    /requires a password/
+  );
+  assert.throws(
+    () => parsePartialBlocks('<!-- hbe-start password="pw" theme="blink" -->secret<!-- hbe-end -->'),
+    /unknown partial encryption option "theme"/
+  );
+  assert.throws(
+    () => parsePartialBlocks('<!-- hbe-start password="pw" password="again" -->secret<!-- hbe-end -->'),
+    /duplicate partial encryption option "password"/
+  );
+  assert.throws(
+    () => parsePartialBlocks('<!-- hbe-start password=pw -->secret<!-- hbe-end -->'),
+    /quoted key="value" syntax/
+  );
+  assert.throws(
+    () => parsePartialBlocks([
+      '<!-- hbe-start password="pw" message="inline" -->',
+      '<!-- hbe-message:legacy -->',
+      'secret',
+      '<!-- hbe-end -->',
+    ].join('\n')),
+    /message is defined twice/
+  );
 });
 
 test('transformPartialBlocks replaces markers and preserves public content', () => {
@@ -106,27 +163,4 @@ test('a block cannot cross the rendered more marker', () => {
     () => parsePartialBlocks('<!-- hbe-start:pw -->secret<!-- more -->still secret<!-- hbe-end -->'),
     /cannot cross <!-- more -->/
   );
-});
-
-test('renderPartialContainer escapes UI text and keeps ciphertext in a data node', () => {
-  const html = renderPartialContainer({
-    format: '4',
-    saltHex: 'aa',
-    nonceHex: 'bb',
-    ciphertextHex: 'cc',
-    kdfIterations: 250000,
-    message: '<message>&',
-    wpm: '" onmouseover="alert(1)',
-    whm: 'wrong',
-    buttonShow: false,
-    buttonText: '<open>',
-  });
-
-  assert.match(html, /data-hbe-partial="true"/);
-  assert.match(html, /data-hbe-partial-data>cc<\/script>/);
-  assert.match(html, /data-wpm="&quot; onmouseover=&quot;alert\(1\)"/);
-  assert.match(html, /&lt;message&gt;&amp;/);
-  assert.match(html, /&lt;open&gt;/);
-  assert.doesNotMatch(html, /data-hbe-ciphertext=/);
-  assert.match(html, /hbe-button-hidden/);
 });

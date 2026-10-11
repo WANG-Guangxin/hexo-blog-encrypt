@@ -145,13 +145,13 @@ post's front matter > encrypt tags
 
 ## Partial content encryption
 
-Use a pair of HTML comments around the content to protect. The value after
-`hbe-start:` is the password used for that block:
+Use a pair of HTML comments around the content to protect. The recommended
+syntax puts block options in the start marker:
 
 ```markdown
 Public content.
 
-<!-- hbe-start:shared-password -->
+<!-- hbe-start password="shared-password" message="Enter the password for this section" -->
 
 This HTML is encrypted during the Hexo build.
 
@@ -159,6 +159,11 @@ This HTML is encrypted during the Hexo build.
 
 More public content.
 ```
+
+The legacy shorthand `<!-- hbe-start:shared-password -->` remains supported.
+Its message is inherited from the global `encrypt.message`. The older separate
+`<!-- hbe-message:... -->` line is also accepted for compatibility, but new
+posts should use the structured start marker.
 
 Partial encryption is deliberately independent from language switching. Put a
 separate pair inside each language block instead of wrapping both languages in
@@ -184,6 +189,10 @@ The two blocks may use different passwords. In that case, switching language
 shows the other block's own password form. With the same password, entering it
 once unlocks both blocks in the current page; the password is not stored in
 `localStorage`.
+
+Each block may override the global `encrypt.message` with the `message` option.
+Option values must be quoted. Currently supported options are `password` and
+`message`; unknown options fail the build instead of being silently ignored.
 
 Rules:
 

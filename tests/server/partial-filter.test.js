@@ -22,7 +22,7 @@ function decryptPayload({ password, saltHex, nonceHex, ciphertextHex, iterations
 
 function extractPayloads(html) {
   return Array.from(html.matchAll(
-    /<div class="hbe hbe-container hbe-partial-container"[^>]*data-salt="([0-9a-f]+)"[^>]*data-nonce="([0-9a-f]+)"[^>]*data-kdf-iterations="([0-9]+)"[^>]*>[\s\S]*?<script type="application\/octet-stream" data-hbe-partial-data>([0-9a-f]+)<\/script>/gi
+    /<div class="hbe hbe-container hbe-partial-container"[^>]*data-salt="([0-9a-f]+)"[^>]*data-nonce="([0-9a-f]+)"[^>]*data-kdf-iterations="([0-9]+)"[^>]*>[\s\S]*?<script[^>]*data-hbe-partial-data>\s*([0-9a-f]+)\s*<\/script>/gi
   )).map((match) => ({
     saltHex: match[1],
     nonceHex: match[2],
@@ -210,6 +210,78 @@ test('partial encryption falls back for non-string button text and title', async
 
   assert.equal(data.partial_encrypt, true);
   assert.match(data.content, />Decrypt<\/button>/);
+});
+
+test('partial encryption uses the configured HBE theme and message', async () => {
+  hexo.config.encrypt = {
+    theme: 'blink',
+    message: 'Custom partial message',
+    kdf: { iterations: ITERATIONS },
+  };
+  const data = partialData(
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->'
+  );
+  delete data.theme;
+
+  await hexo.execFilter('after_post_render', data, { context: hexo });
+
+  assert.match(data.content, /hbe-input-blink/);
+  assert.match(data.content, /Custom partial message/);
+  assert.match(data.content, /data-hbe-partial="true"/);
+  assert.match(data.content, /id="hbe-partial-0"/);
+  assert.match(data.content, /data-hbe-partial-form/);
+  assert.match(data.content, /hbe-partial-password/);
+});
+
+test('partial encryption respects decryptButton.show=false from global config', async () => {
+  hexo.config.encrypt = {
+    decryptButton: { show: false },
+    kdf: { iterations: ITERATIONS },
+  };
+  const data = partialData('<!-- hbe-start:secret -->secret<!-- hbe-end -->');
+
+  await hexo.execFilter('after_post_render', data, { context: hexo });
+
+  assert.match(data.content, /hbe-button-hidden/);
+});
+
+test('partial encryption lets each block override the global message', async () => {
+  hexo.config.encrypt = {
+    message: 'Global partial message',
+    kdf: { iterations: ITERATIONS },
+  };
+  const data = partialData([
+    '<!-- hbe-start:first -->',
+    '<!-- hbe-message:First block message -->',
+    '<p>first</p>',
+    '<!-- hbe-end -->',
+    '<!-- hbe-start:second -->',
+    '<p>second</p>',
+    '<!-- hbe-end -->',
+  ].join('\n'));
+
+  await hexo.execFilter('after_post_render', data, { context: hexo });
+
+  assert.match(data.content, /First block message/);
+  assert.match(data.content, /Global partial message/);
+  assert.equal(data.content.includes('hbe-message:'), false);
+});
+
+test('structured hbe-start options override the global message', async () => {
+  hexo.config.encrypt = {
+    message: 'Global partial message',
+    kdf: { iterations: ITERATIONS },
+  };
+  const data = partialData(
+    '<!-- hbe-start password="secret:123" message="Structured block message" -->' +
+    'secret<!-- hbe-end -->'
+  );
+
+  await hexo.execFilter('after_post_render', data, { context: hexo });
+
+  assert.match(data.content, /Structured block message/);
+  assert.doesNotMatch(data.content, /Global partial message/);
+  assert.doesNotMatch(data.content, /hbe-start password=/);
 });
 
 test('runtime assets are injected once for excerpt pages and PJAX navigation', async () => {

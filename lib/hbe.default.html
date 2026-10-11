@@ -1,4 +1,4 @@
-<div class="hbe hbe-container" id="hexo-blog-encrypt"
+<div class="hbe hbe-container{{hbeContainerClass}}" id="{{hbeContainerId}}"{{hbeContainerAttribute}}
      data-hbe-format="{{hbeFormat}}"
      data-wpm="{{hbeWrongPassMessage}}"
      data-whm="{{hbeWrongHashMessage}}"
@@ -6,14 +6,14 @@
      data-nonce="{{hbeNonce}}"
      data-kdf-iterations="{{hbeKdfIterations}}"
      data-auto-save="{{hbeAutoSave}}">
-  <script id="hbeData" type="hbeData">
+  <script id="{{hbeDataId}}" type="{{hbeDataType}}"{{hbeDataAttribute}}>
     {{hbeEncryptedData}}
   </script>
   <div class="hbe hbe-content">
-    <form id="hbeForm" class="hbe hbe-form" onsubmit="return false">
+    <form id="{{hbeFormId}}" class="hbe hbe-form"{{hbeFormAttribute}} onsubmit="return false">
       <div class="hbe hbe-input hbe-input-default">
-      <input class="hbe hbe-input-field hbe-input-field-default" type="password" id="hbePass">
-      <label class="hbe hbe-input-label hbe-input-label-default" for="hbePass">
+      <input class="hbe hbe-input-field hbe-input-field-default{{hbeInputClass}}" type="password" id="{{hbeInputId}}">
+      <label class="hbe hbe-input-label hbe-input-label-default" for="{{hbeInputId}}">
         <span class="hbe hbe-input-label-content hbe-input-label-content-default">{{hbeMessage}}</span>
       </label>
     </div>
