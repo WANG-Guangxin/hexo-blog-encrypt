@@ -205,7 +205,7 @@ function bootstrapPartial(element) {
   void tryCachedPasswords().then((auto) => {
     if (!auto && !revealed && isCurrentLanguage(element)) {
       const input = form && form.querySelector('.hbe-partial-password');
-      if (input) input.focus();
+      if (input) input.focus({ preventScroll: true });
     }
   });
 }
@@ -247,7 +247,7 @@ async function bootstrapFull() {
   const auto = await tryAutoDecrypt(mainElement, wire, guardedReveal);
   if (!auto && !revealed) {
     const input = mainElement.querySelector('#hbePass');
-    if (input) input.focus();
+    if (input) input.focus({ preventScroll: true });
   }
 }
 
