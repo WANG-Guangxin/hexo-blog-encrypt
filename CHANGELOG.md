@@ -6,6 +6,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## Unreleased
+
+### Changed
+
+* **Conflict error names the post.** When a post combines partial
+  encryption markers with a full-post password (front-matter, global
+  `encrypt.password`, or a matching encrypted tag), the build error now
+  includes the post title — e.g. `post "My Post" cannot combine
+  full-post and partial encryption` — so the offending file is easy to
+  locate in large sites. Posts without a string title fall back to
+  `(untitled)`. No behavioral change otherwise; the same conflict still
+  fails the build.
+
+---
+
 ## [4.0.2] — 2026-06-07
 
 ### Tests

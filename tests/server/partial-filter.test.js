@@ -149,24 +149,34 @@ test('partial and full-post encryption cannot be combined', async () => {
   hexo.config.encrypt = {};
   const data = partialData(
     '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
-    { password: 'whole-post' }
+    { title: 'My Combined Post', password: 'whole-post' }
   );
 
   await assert.rejects(
     hexo.execFilter('after_post_render', data, { context: hexo }),
-    /cannot combine full-post and partial encryption/
+    (err) => {
+      assert.match(err.message, /cannot combine full-post and partial encryption/);
+      // The error must name the offending post so users can locate it.
+      assert.match(err.message, /"My Combined Post"/);
+      return true;
+    }
   );
 });
 
 test('partial encryption conflicts with a globally configured full-post password', async () => {
   hexo.config.encrypt = { password: 'whole-post' };
   const data = partialData(
-    '<!-- hbe-start:secret -->secret<!-- hbe-end -->'
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
+    { title: 'Global Password Post' }
   );
 
   await assert.rejects(
     hexo.execFilter('after_post_render', data, { context: hexo }),
-    /cannot combine full-post and partial encryption/
+    (err) => {
+      assert.match(err.message, /cannot combine full-post and partial encryption/);
+      assert.match(err.message, /"Global Password Post"/);
+      return true;
+    }
   );
 });
 
@@ -188,12 +198,33 @@ test('partial encryption conflicts with a matching encrypted tag', async () => {
   };
   const data = partialData(
     '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
-    { tags: [{ name: 'Secret' }] }
+    { title: 'Tagged Conflict Post', tags: [{ name: 'Secret' }] }
   );
 
   await assert.rejects(
     hexo.execFilter('after_post_render', data, { context: hexo }),
-    /cannot combine full-post and partial encryption/
+    (err) => {
+      assert.match(err.message, /cannot combine full-post and partial encryption/);
+      assert.match(err.message, /"Tagged Conflict Post"/);
+      return true;
+    }
+  );
+});
+
+test('conflict error falls back to "(untitled)" for a non-string title', async () => {
+  hexo.config.encrypt = {};
+  const data = partialData(
+    '<!-- hbe-start:secret -->secret<!-- hbe-end -->',
+    { title: 12345, password: 'whole-post' }
+  );
+
+  await assert.rejects(
+    hexo.execFilter('after_post_render', data, { context: hexo }),
+    (err) => {
+      assert.match(err.message, /cannot combine full-post and partial encryption/);
+      assert.match(err.message, /"\(untitled\)"/);
+      return true;
+    }
   );
 });
 

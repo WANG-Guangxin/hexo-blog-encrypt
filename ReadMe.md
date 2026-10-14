@@ -203,7 +203,7 @@ Rules:
 - Do not nest blocks or leave a marker unmatched; the build fails instead of
   publishing ambiguous output.
 - Do not combine partial markers with a full-post `password` or matching
-  encrypted tag.
+  encrypted tag; the build fails with an error naming the offending post.
 - Keep the marker password out of publicly readable source repositories. It is
   removed from generated HTML, but it is necessarily present in the Markdown
   source during the build.

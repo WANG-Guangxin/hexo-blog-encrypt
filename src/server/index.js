@@ -209,8 +209,9 @@ function register(hexo) {
     if (partialBlocks.length === 0) return false;
 
     if (resolveConfiguredFullPassword(hexo, data) !== null) {
+      const titleText = (typeof data.title === 'string') ? data.title.trim() : '(untitled)';
       throw new Error(
-        'hexo-blog-encrypt: a post cannot combine full-post and partial encryption'
+        `hexo-blog-encrypt: post "${titleText}" cannot combine full-post and partial encryption`
       );
     }
 
